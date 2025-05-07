@@ -1,0 +1,94 @@
+function playSpotify(){
+  const message = "たんじょうび";
+  playMusic(message);
+  return;
+ }
+
+ function playMusic(messageFromSlack) {
+   
+   if (messageFromSlack.match(/誕生日/)) {
+     putTrackCode("4Hdw79vmRUeJEcfS9X4f8E");
+   } else if (messageFromSlack.match(/たんじょうび/)) {
+     putTrackCode("22TmkeyUrxEL1kNecnINfz");
+   }
+   
+   return;
+ }
+ 
+ function putTrackCode(trackCode) {
+   const clientId     = "clientIDを入力";
+   const clientSecret = "clientSecretを入力";
+   const authorization_code  = "authorizationCodeを入力";
+   const basic_authorization = Utilities.base64Encode(clientId+":" + clientSecret);
+ 
+   const scriptProperties = PropertiesService.getScriptProperties();
+   const is_first_access = Object.keys(scriptProperties.getProperties()).length == 0;
+   const access_token = is_first_access ? getFirstAccessTokenToSpotify(authorization_code, basic_authorization) : scriptProperties.getProperty('access_token');
+   
+   const options =
+    {
+      "method": "put",
+      "headers": { "Authorization": "Bearer " + access_token },
+      "device_id" : "deviceIDを入力",
+      "payload": JSON.stringify({"uris": ["spotify:track:" + trackCode]}),
+      "muteHttpExceptions": true
+    };
+     
+   const response = UrlFetchApp.fetch("https://api.spotify.com/v1/me/player/play", options);
+   if(response.getResponseCode() == 401){
+      const refresh_access_token = refreshAccessTokenToSpotify(basic_authorization);
+      scriptProperties.setProperty('access_token', refresh_access_token);
+
+      options.headers.Authorization = "Bearer " + refresh_access_token;
+      UrlFetchApp.fetch("https://api.spotify.com/v1/me/player/play", options);
+   }
+ } 
+
+ function getFirstAccessTokenToSpotify(authorization_code, basic_authorization) {
+   const headers = { "Authorization": "Basic " + basic_authorization };
+   const payload = {
+     "grant_type": "authorization_code",
+     "code": authorization_code,
+     "redirect_uri": "https://www.google.co.jp/"
+   };
+   const options = {
+     "payload": payload,
+     "headers": headers,
+   };
+   const response = UrlFetchApp.fetch("https://accounts.spotify.com/api/token", options);
+
+   const parsedResponse = JSON.parse(response);
+   const scriptProperties = PropertiesService.getScriptProperties();
+   scriptProperties.setProperties({
+    'access_token': parsedResponse.access_token,
+    'refresh_token': parsedResponse.refresh_token
+   });
+   return parsedResponse.access_token;
+}
+
+function refreshAccessTokenToSpotify(basic_authorization) {
+  const scriptProperties = PropertiesService.getScriptProperties();
+  const refresh_token = scriptProperties.getProperty('refresh_token');
+
+  const headers = {
+    "Authorization": "Basic " + basic_authorization,
+    "Content-Type": "application/x-www-form-urlencoded"
+  };
+  const payload = {
+     "grant_type": "refresh_token",
+     "refresh_token": refresh_token
+  };
+  const options = {
+    "payload": payload,
+    "headers": headers,
+  };
+  const response = UrlFetchApp.fetch("https://accounts.spotify.com/api/token", options);
+
+  const parsedResponse = JSON.parse(response);
+  scriptProperties.setProperty('access_token', parsedResponse.access_token);
+
+  if (parsedResponse.refresh_token) {
+    scriptProperties.setProperty('refresh_token', parsedResponse.refresh_token);
+  }
+  return parsedResponse.access_token;
+}
