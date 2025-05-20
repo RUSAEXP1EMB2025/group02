@@ -1,0 +1,237 @@
+// ==========================
+// メイン処理（LINE Bot）
+// ==========================
+function doPost(e) {
+  const sheet = SpreadsheetApp.openById('10ZxZoG5JcTLvl2Y9diPl6TR4ZDzsJNogPMvMXwA_Xbw').getActiveSheet();
+  const data = JSON.parse(e.postData.contents);
+  const events = data.events;
+  const channelToken = '9UI0Tf3AU83nLnPPxm6NvzZaCsjEiUwQIfO9Uq0H0YcXZOe/ZYr1HWwRuqU97Ea9Mfoccam+3XLf+oaEJjXIc3W9rZMtknk2C9ogXBAGIizflU6yT2MHhR6+PUccqmasdTVnApfvOPTy50UIbiCCRwdB04t89/1O/w1cDnyilFU=';
+
+  for (let i = 0; i < events.length; i++) {
+    const event = events[i];
+    if (event.type === 'message' && event.message.type === 'text') {
+      const userMessage = event.message.text;
+      const replyToken = event.replyToken;
+      sheet.appendRow([new Date(), userMessage]);
+
+      let replyText = 'そのキーワードは登録されていません…💭';
+      if (userMessage === '誕生日') {
+        replyText = 'バースデーモードを開始します🎉';
+        startBirthdayFlow();
+      } else if (userMessage === 'ホラー') {
+        replyText = 'ホラーモードを開始します👻';
+        startHorrorMode();
+      } else if (userMessage === 'パーティー') {
+        replyText = 'パーティーモードを開始します🎉✨';
+        startPartyMode();
+      }else{
+        replyText = `${userMessage}が格納されています`
+      }
+
+      const url = 'https://api.line.me/v2/bot/message/reply';
+      const payload = {
+        replyToken: replyToken,
+        messages: [{ type: 'text', text: replyText }]
+      };
+
+      const _spotify = {
+        method: 'post',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ' + channelToken
+        },
+        payload: JSON.stringify(payload)
+      };
+
+      try {
+        UrlFetchApp.fetch(url, _spotify);
+      } catch (error) {
+        Logger.log('LINE返信エラー：' + error);
+      }
+    }
+  }
+
+  return ContentService.createTextOutput('OK');
+}
+
+// ==========================
+// 誕生日モード処理（トリガー）
+// ==========================
+function startBirthdayFlow() {
+  try {
+    // 照明OFF
+    sendNatureRemoCommand('62370f4b-e086-48d8-ad33-4a4773d4f328', 'a3ebdc4a-b99f-4080-9e53-84e6eff734b7',null,null);
+    // Spotify再生
+    playSpotifyTrack('2EG7RZZoxtYm61KDTRmXto');
+    // 38秒後に照明ON
+    Utilities.sleep(38000);
+    sendNatureRemoCommand('62370f4b-e086-48d8-ad33-4a4773d4f328', 'a3ebdc4a-b99f-4080-9e53-84e6eff734b7',null,null);
+  } catch (error) {
+    Logger.log("誕生日フローエラー：" + error);
+  }
+}
+
+// ==========================
+// ホラーモード処理（トリガー）
+// ==========================
+function startHorrorMode() {
+  try {
+    // 照明OFFのみ（暗くする）
+    sendNatureRemoCommand('62370f4b-e086-48d8-ad33-4a4773d4f328','a3ebdc4a-b99f-4080-9e53-84e6eff734b7',
+      null,
+      null
+    );
+    
+    // Spotify再生
+    playSpotifyTrack("55k3SOglWyHSLEzFpK2Rrp");
+
+  } catch (error) {
+    Logger.log("ホラーモードエラー：" + error);
+  }
+}
+
+// ==========================
+// パーティーモード処理（トリガー）
+// ==========================
+function startPartyMode() {
+  try {
+    // 電気を一旦OFF（部屋暗く）
+    sendNatureRemoCommand('62370f4b-e086-48d8-ad33-4a4773d4f328','a3ebdc4a-b99f-4080-9e53-84e6eff734b7',null,null);
+
+    Utilities.sleep(2000); // 2秒だけ暗転
+
+    // ミラーボールON & LED ON（laser, LED）
+    sendNatureRemoCommand('62370f4b-e086-48d8-ad33-4a4773d4f328',null,'c4726a4c-d549-4c4f-9219-4abac875b721','30413a1a-54ee-4f0f-8049-76b57e64b914');
+
+    // Spotify再生
+    playSpotifyTrack("5AEs83CYoPApEjYEJGbTuJ");
+
+  } catch (error) {
+    Logger.log("パーティーモードエラー：" + error);
+  }
+}
+
+
+
+
+// ==========================
+// Nature Remo制御
+// ==========================
+function sendNatureRemoCommand(applianceId, light_signalId, laser_signalId, LED_signalId) {
+  const token = 'ory_at_3zk0y0XD5S7uwJ0AKzdlX_IIlKXEqM6sagGo6NrVbF0.MHkiIwvbLEsG2SqHXddEmqbwl-SAUMzH1JmRimz0mxY';
+  const options = {
+    method: 'post',
+    headers: {
+      'Authorization': 'Bearer ' + token
+    }
+  };
+
+  if (light_signalId) {
+    const light_url = `https://api.nature.global/1/signals/${light_signalId}/send`;
+    UrlFetchApp.fetch(light_url, options);
+  }
+
+  if (laser_signalId) {
+    const laser_url = `https://api.nature.global/1/signals/${laser_signalId}/send`;
+    UrlFetchApp.fetch(laser_url, options);
+  }
+
+  if (LED_signalId) {
+    const LED_url = `https://api.nature.global/1/signals/${LED_signalId}/send`;
+    UrlFetchApp.fetch(LED_url, options);
+  }
+}
+
+
+
+
+
+// ==========================
+// Spotify関連設定
+// ==========================
+const SPOTIFY_CLIENT_ID     = 'bb64859f03d2416eb2e08197a2fc0cb3';
+const SPOTIFY_CLIENT_SECRET = '9e8a6df19858445fa50052d9f9c85059';
+const SPOTIFY_REDIRECT_URI  = 'https://www.google.co.jp/';
+const SPOTIFY_DEVICE_ID = 'dc4061c7cae60f7141eb98b73e99f451a915bf17'
+function showAuthUrl() {
+  const url = `https://accounts.spotify.com/authorize?client_id=${SPOTIFY_CLIENT_ID}&response_type=code&redirect_uri=${encodeURIComponent(SPOTIFY_REDIRECT_URI)}&scope=user-modify-playback-state user-read-playback-state`;
+  Logger.log("🔗 認証用URL: " + url);
+}
+
+function doGet(e) {
+  const code = e.parameter.code;
+  if (!code) return ContentService.createTextOutput("❌ 認証コードがありません。");
+
+  const response = UrlFetchApp.fetch("https://accounts.spotify.com/api/token", {
+    method: "post",
+    payload: {
+      grant_type: "authorization_code",
+      code: code,
+      redirect_uri: SPOTIFY_REDIRECT_URI
+    },
+    headers: {
+      Authorization: "Basic " + Utilities.base64Encode(SPOTIFY_CLIENT_ID + ":" + SPOTIFY_CLIENT_SECRET)
+    }
+  });
+
+  const data = JSON.parse(response.getContentText());
+  PropertiesService.getScriptProperties().setProperties({
+    access_token: data.access_token,
+    refresh_token: data.refresh_token
+  });
+
+  return ContentService.createTextOutput("✅ 認証成功！再生できます。");
+}
+
+function refreshAccessToken() {
+  const refreshToken = PropertiesService.getScriptProperties().getProperty('refresh_token');
+  const response = UrlFetchApp.fetch("https://accounts.spotify.com/api/token", {
+    method: "post",
+    payload: {
+      grant_type: "refresh_token",
+      refresh_token: refreshToken
+    },
+    headers: {
+      Authorization: "Basic " + Utilities.base64Encode(SPOTIFY_CLIENT_ID + ":" + SPOTIFY_CLIENT_SECRET)
+    }
+  });
+
+  const data = JSON.parse(response.getContentText());
+  PropertiesService.getScriptProperties().setProperty('access_token', data.access_token);
+}
+
+function getDeviceList() {
+  refreshAccessToken();
+  const accessToken = PropertiesService.getScriptProperties().getProperty('access_token');
+
+  const response = UrlFetchApp.fetch("https://api.spotify.com/v1/me/player/devices", {
+    headers: {
+      Authorization: "Bearer " + accessToken
+    }
+  });
+
+  const data = JSON.parse(response.getContentText());
+  Logger.log(JSON.stringify(data, null, 2));
+}
+
+function playSpotifyTrack(trackId) {
+  refreshAccessToken();
+  const accessToken = PropertiesService.getScriptProperties().getProperty('access_token');
+
+  const url = `https://api.spotify.com/v1/me/player/play?device_id=${SPOTIFY_DEVICE_ID}`;
+  const payload = {
+    uris: [`spotify:track:${trackId}`]
+  };//
+
+  const options = {
+    method: "put",
+    headers: {
+      Authorization: "Bearer " + accessToken,
+      "Content-Type": "application/json"
+    },
+    payload: JSON.stringify(payload)
+  };
+
+  UrlFetchApp.fetch(url, options);
+  Logger.log("▶️ 再生開始: " + trackId);
+}
